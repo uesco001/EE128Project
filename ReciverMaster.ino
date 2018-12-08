@@ -1,28 +1,30 @@
-#define byte uint8_t
-#include "ServoTimer2.h"
+#define byte uint8_t  // if you are using the Servotimer 2 lib then include this and change boolean to bool in the .h file that you had to downnload form zip
+#include "ServoTimer2.h"  /// using the servo2 library bc we are using Timer1 for input capture. Compiler does not like that so we use servotimer2 which uses timer 2
 //~~~~~~~~~~~~~~~ Servo variables ~~~~~~~~~~~~~~~
-ServoTimer2 servo1;                // Servo X
-ServoTimer2 servo2;                // Servo Y
-unsigned c = 0;
+ServoTimer2 servo1;                // Servo X axis 
+ServoTimer2 servo2;                // Servo Y axis
+unsigned c = 0;			   //  retrun vlaue for calibratoin 
 unsigned char servoValX = 87;      // Center for X axis
 unsigned char servoValY = 85;      // Center for Y axis
+//*****************************************************
 //~~~~~~~~~~~~~~~ Signal interpretation variables ~~~~~~~~~~~~~~~
 // This is our BST
 unsigned char alphabet[] = {'0','T','E','M','N','A','I','O','G','K','D','W',
 'R','U','S',' ','2','Q','Z','Y','C','X','B','J','P','3','L','4', 'F','V','H'};
-// This is the BST
+// This is the BST     
 unsigned char Long = 2; // Long pulse
 unsigned char Short = 1; // Short pulse
-unsigned char pulse [5] = {0,0,0,0,0};
-unsigned char UARTflag = 0;
+unsigned char pulse [5] = {0,0,0,0,0};  // pulse is array that stores 0 1 or 2 which corresponds to the pulsesread
+//unsigned char UARTflag = 0; // uart flag for interrup didn't end up using it because of certain troubles
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //ISR(TIMER1_COMPA_vect)
 //{
 //  UARTflag = 1;
 //  Serial.print('p');
 //}
-unsigned char MenuCase = 'M';
+unsigned char MenuCase = 'M'; // initialize menu for switch statement
 //------------------------------ search() begin ------------------------------  
+// the purpose of the funtion is to iterate through the array recursively for a BST
 unsigned char search(unsigned char cnt, unsigned char i, unsigned char value[])
 {
   if(value[cnt] == Long)
@@ -44,15 +46,21 @@ unsigned char search(unsigned char cnt, unsigned char i, unsigned char value[])
 }
 //------------------------------ search() end ------------------------------ 
 
+
 //------------------------------ check() begin ----------------------------------
+// This funtion check is the signal is valid. We send a 100Hz squarewave with 30% duty cycle
+// if its not that signal then check shall return false`
+
 bool check(){
   unsigned i = 0;
   unsigned int times[7] = {0,0,0,0,0, 0};  // create array of long for time event
-  TCCR1A = 0;                   // nothing for register
+  // we chose an array of 7 because for some reason the first two times it reads and input its wrong. the first element of the array is the same as the last from the last time the funtion was called 
+// the second element is some low value from 2 - 40; 
+  TCCR1A = 0;                   // make sure nothing is set from other funtions
   TCNT1 = 0;                    // set time to zero
 
-  TIMSK1 = 0;   // disable all interrupts
-  TCCR1B = 0x05; // Rise time and a prescale of 1024
+  TIMSK1 = 0;   // disable all interruptls incase they were set
+  TCCR1B = 0x05; // falling edge time and a prescale of 1024
   TCNT1 = 0; 
   for(i = 0; i < 7; i++) // check signal only at 5 events 
   {
