@@ -166,8 +166,8 @@ unsigned calibrate(){
 
 //------------------------------ getSignal() begin ------------------------------
 // The purpose of this funtion is to read a morse code signal. You must send pulses of correct length
-// A short from our testing was around .1 seconds to .35
-// A long form our testing was around . 
+// A short from our testing was around .1 seconds to .3 seconds
+// A long form our testing was around .4 - .8 seconds 
 
 unsigned char getSignal(){
   
@@ -175,59 +175,52 @@ unsigned char getSignal(){
   long timedEvent[8] = {0};   // array to store the timed events 4 pulses so 4 rising 4 falling thus max of 8 events
   unsigned char  pulsed[5] = {0}; // array to store the type of pulse long short or nothing 
   long pulse_width = 0;  // 
-  long upper_long = 9625;
-  long lower_long = 4550;
-  long upper_short = 4000;
-  long lower_short = 900;
-  unsigned int eventCount = 0;
-  TCCR1B = 0x00;                    // so timer doesn't go off
-  TIMSK1 = 0x00;            //Timer/Counter1 Interrupt Mask Register for OCR1A 
-  TCCR1A = 0;
-  eventCount = 0;
-  UARTflag = 0;
-  TCNT1 = 0;
-  TIFR1 = (1<<ICF1);                             // Clear ICF (Input Capture flag) flag
-  TCCR1B = 0x00;                               // Falling Edge, no prescaler
+  long upper_long = 12500;  // upper range for a long pulse
+  long lower_long = 5000;  // lower range for a long pulse
+  long upper_short = 4687; // upper range for a short pulse
+  long lower_short = 1563;  // lower range for a short pulse
+  unsigned int eventCount = 0; // var to keep track of event number
+  TCCR1B = 0x00;              // so timer doesn't go off
+  TIMSK1 = 0x00;             //Disable all interrupts 
+  TCCR1A = 0;               // setting to zeros incase other funtions turn it off
+  TIFR1 = (1<<ICF1);       // Clear ICF (Input Capture flag) flag
+  TCCR1B = 0x00;          // Falling Edge, no prescaler
     //Serial.print("wait\n");
   while ( (TIFR1&(1<<ICF1)) == 0);              // Wait for timer to detect Falling Edge
-  TIFR1 = (1<<ICF1); 
-  TCNT1 = 0;
-  TCCR1B = 0x05;                            // prescale to 64 
+  TIFR1 = (1<<ICF1);     // clear flag aagin
+  TCNT1 = 0;		// set time to zero
+  TCCR1B = 0x05;       // prescale to 64 
   //OCR1A = 65535;   
   //TIMSK1 = 0x02;                    
   eventCount = 1;
-  x = 1;
-  while((eventCount < 8) && (UARTflag == 0)){
-      TCCR1B ^= 1<<6 ;
+  while((eventCount < 8)){ // capture only max of 8 events
+      TCCR1B ^= 1<<6 ;   // toggle the event capture bit falling and rising
       //Serial.print('r');
-      while ( !( (TIFR1&(1<<ICF1)))){if(TCNT1 - timedEvent[eventCount - 1] > 30000){break; } } // Wait for timer to detect Falling Edge
-      TIFR1 = (1<<ICF1); 
+      while ( !( (TIFR1&(1<<ICF1)))) // wait till event 
+	{if(TCNT1 - timedEvent[eventCount - 1] > 30000) // if enought timed has elapsed then transmission for a letter should be done
+		{break; } 
+	}  // Wait for timer to detect Falling Edge
+      TIFR1 = (1<<ICF1);  // clear flag
       //Serial.print('t');
-      if( (eventCount < 8 ) && !UARTflag){
-        timedEvent[eventCount] = ICR1;
+      if( (eventCount < 8 ) ){
+        timedEvent[eventCount] = ICR1; // capture timed eventt
         TIFR1 = (1<<ICF1);                         // Clear ICF flag
-        eventCount++;
+        eventCount++;  
        
         }
-      else                                         //Can I optimize this
-      {
-        eventCount = 8;
-      } 
   }//end while
    
-       TIMSK1 = 0;
-     
        TCCR1B = 0x00;   /// stop the timer
    
-       /////////////////////////////// FINNA TRYNNA CONVERT TIME TO 1 AND 0
+       /////////////////////////////// conver pulse widths to long or short 
        
        for(i = 0; i < 4; i++){
-          pulse_width = timedEvent[i*2 + 1] - timedEvent[i*2];
-          if(/*pulse_width < upper_long && */pulse_width > lower_long )
+          pulse_width = timedEvent[i*2 + 1] - timedEvent[i*2]; // calculate width
+          if(pulse_width < upper_long && pulse_width > lower_long ) // checks if it within error
           {
-            value = 2;
+            value = 2; 
           }
-          else if( pulse_width < upper_short && pulse_width > lower_short)
+          else if( pulse_width < upper_short && pulse_width > lower_short) // checks if within error
           {
             value = 1;
           }
@@ -242,17 +235,17 @@ unsigned char getSignal(){
 //          Serial.print('\n');
           pulsed[i] = value; 
        }
-       b = search(0,0,pulsed);
+       b = search(0,0,pulsed); // calls the search funtion to reutrn the address of letter in array 
        return b;      
 }
 //------------------------------ getSignal() end ------------------------------
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600); // set up serial communication for arduino and pc
   servo1.attach(3);  // gets PWM from pin 3
   servo2.attach(5);  // gets PWM from pin 5
-  pinMode(12,INPUT);
+  pinMode(12,INPUT); 
   pinMode(13,OUTPUT);
 }
 void loop() {
@@ -267,27 +260,24 @@ void loop() {
 unsigned char letter;
   switch(MenuCase)
   {
-    case 'M':
-      digitalWrite(13,LOW);
+    case 'M': // this the menu
+      digitalWrite(13,LOW); // turns led off
       Serial.print("Main menu\n Search? enter S\nRead enter T\n");
-      while(Serial.available() == 0);
+      while(Serial.available() == 0);   // waits for input
       letter = Serial.read();
-        if(letter == 'S'){MenuCase = letter; break;}
-        else if(letter == 'T'){MenuCase = letter; break;}
-        else { Serial.print("WRONG\n"); MenuCase = 'M'; break;}
-     case 'T':
-          digitalWrite(13,HIGH);
+      if(letter == 'S'){MenuCase = letter; break;}
+      else if(letter == 'T'){MenuCase = letter; break;}
+      else { Serial.print("invalid input\n"); MenuCase = 'M'; break;}
+     case 'T':  // 
+         digitalWrite(13,HIGH);
          Serial.print("\nYou can exit by pressing button and waving hand accross photodiode\nReading signal...\n");
-         while(digitalRead(12)){
+         while(digitalRead(12)){ // checks if button is pressed 
           Serial.write(getSignal());
-          //Serial.print('\n');
          }
          MenuCase = 'M';
          break;
-         
-
         
-     case 'S':
+     case 'S':  // calls calibration and gives coordinates
         Serial.print("Searching for signal...\n");
         c = calibrate();
         if(c == 32500)
@@ -305,7 +295,7 @@ unsigned char letter;
           
         }
      case 'n':
-
+		// informs user that signal is not found
           Serial.print("Signal not found\n Search again? Y or N\n");
           while(Serial.available() == 0);
           letter = Serial.read();
@@ -315,10 +305,11 @@ unsigned char letter;
             break;
           }
           else{ 
-            MenuCase = 'S';
+            MenuCase = 'M';
             break;
           }
       case 'R':
+		// ask user if ready to read morse sigal
           Serial.print("\nready to read?\n Y or N");
           while(Serial.available() == 0);
           letter = Serial.read();
@@ -333,10 +324,6 @@ unsigned char letter;
             break;
           }
           
-          
-        
-  
-    
   }
   
 }
