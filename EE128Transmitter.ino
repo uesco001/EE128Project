@@ -1,27 +1,33 @@
 //~~~~~~~~~~~~~~~ Switch statement variables ~~~~~~~~~~~~~~~
   char userInput;
-  char menuCase = '0';
+  char menuCase = '0';                          // Starts switches at selectionMenu
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 
-//------------------------------ searchSignal(a) begin ------------------------------
+//------------------------------ searchSignal() begin ------------------------------
+// Description: Sends a unique signal to the receiver during calibration mode.
+// We chose to send a 100 Hz signal with a 30% duty cycle.
+//----------------------------------------------------------------------------------
 void searchSignal()
 { 
   while(digitalRead(10))
-  {
-    PORTB = 0x02;              
-    //digitalWrite(9, HIGH);                      // Sets pin D9 on
-    delayMicroseconds(3000);                    // Waits for 10ms - Creating signal w/ 100Hz frequency
-    PORTB = 0x00;              
-    //digitalWrite(9, LOW);                       // Sets pin D9 off
-    delayMicroseconds(7000);                    // Waits for 10ms - Creating signal w/ 100Hz frequency
+  {            
+    digitalWrite(9, HIGH);                      // Sets pin D9 on - Rising edge
+    delayMicroseconds(3000);                    // Waits for 3000us - Creating signal w/ 30% duty cycle
+             
+    digitalWrite(9, LOW);                       // Sets pin D9 off - Falling edge
+    delayMicroseconds(7000);                    // Waits for 7000us
   }
 }
 //------------------------------ searchSignal() end ------------------------------
 
 
 //------------------------------ repeater() begin ------------------------------
+// Description: Repeater using input capture and output compare.
+// Takes in button presses from user using input capture.
+// Uses output compare in toggle mode to send square signal (laser) to the photodiode.
+//------------------------------------------------------------------------------
    
 void repeater()
 {
@@ -29,7 +35,7 @@ void repeater()
   TCNT1 = 0;
   TIFR1 = (1<<ICF1);                                   // Clear ICF (Input Capture flag) flag
   
-  while(digitalRead(10))
+  while(digitalRead(10))                               // When menu button is not pressed
   {
     //FIRST RISING EDGE (1)
     TCCR1B = 0x40;                                     // Rising edge, no prescaler
@@ -52,14 +58,14 @@ void repeater()
 
 void setup()
 {
- DDRB = 0x02;                   // Sets pin D9 as output
  Serial.begin(9600);
- //pinMode(9, OUTPUT);          // Sets pin D9 as output
- //pinMode(10, INPUT);          // Sets pin D10 as input
+ pinMode(9, OUTPUT);          // Sets pin D9 as output - 
+ pinMode(10, INPUT);          // Sets pin D10 as input
 }
   
  void loop()
  {
+  
  //--------------- menuCase Switch begin ---------------
  
   switch(menuCase){
@@ -72,17 +78,17 @@ void setup()
       Serial.print("2. Begin transmission \n");
       Serial.print("-------------------------------------------- \n \n");
 
-      while(Serial.available() == 0);
+      while(Serial.available() == 0);     // Waits for user input
       userInput = Serial.read();
       
       if (userInput == ('1'))
       {
-        menuCase = '1';
+        menuCase = '1';                   // searchSignal case (Calibration)
         break;
       }
       else if (userInput == ('2'))
       {
-        menuCase = '2';
+        menuCase = '2';                   // repeater case (Morse Code Transmission)
         break;
       }
       else
